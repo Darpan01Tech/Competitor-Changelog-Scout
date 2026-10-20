@@ -1,0 +1,1 @@
+# Competitor-Changelog-Scout
