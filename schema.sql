@@ -109,7 +109,7 @@ ORDER BY e.retrieved_at DESC;
 -- Seed Competitors
 INSERT INTO competitors (id, name, changelog_url, blog_url) VALUES
     ('comp_linear', 'Linear', 'https://linear.app/changelog', 'https://linear.app/blog'),
-    ('comp_mock', 'MockCorp (Test Suite)', 'https://mockcorp.example.com/tc1-new.html', 'https://mockcorp.example.com/tc2-announced.html')
+    ('comp_mock', 'MockCorp (Test Suite)', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Canonical Features (Crucial for TC3 Renamed Feature Mapping)
@@ -124,7 +124,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC1', 
         'New feature in changelog', 
-        'https://mockcorp.example.com/tc1-new.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
         'Status = shipped, dated row with source link', 
         'Status = shipped (Confidence: 0.98)', 
         'Changelog explicitly states: "Advanced CSV Export is now live and generally available."', 
@@ -133,7 +133,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC2', 
         'Feature in marketing post only', 
-        'https://mockcorp.example.com/tc2-announced.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
         'Status = announced (not shipped)', 
         'Status = announced (Confidence: 0.95)', 
         'Blog post states: "Sneak peek at AI Summaries coming in Q1 next year. Join the waitlist."', 
@@ -142,7 +142,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC3', 
         'Feature renamed', 
-        'https://mockcorp.example.com/tc3-renamed.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
         'Mapped to existing row (feat_ai_reply)', 
         'Mapped Quick Reply -> feat_ai_reply (AI Smart Reply)', 
         'Matched alias "Quick Reply" in features registry array.', 
@@ -151,7 +151,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC4', 
         'Changelog page removed (404)', 
-        'https://mockcorp.example.com/tc4-missing.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
         'Status = uncertain (never mark feature removed)', 
         'Status = uncertain (Confidence: 0.00)', 
         'HTTP 404 Not Found returned during scrape; logged as uncertain per safety guardrail.', 
@@ -170,7 +170,7 @@ INSERT INTO entries (
         'shipped', 
         0.98, 
         'Explicitly marked as "now live" in the October changelog release notes.', 
-        'https://mockcorp.example.com/tc1-new.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
         'changelog', 
         TRUE, 
         'comp_mock|feat_csv_export|shipped|2026-10-20'
@@ -182,7 +182,7 @@ INSERT INTO entries (
         'announced', 
         0.95, 
         'Mentioned in marketing blog post as upcoming Q1 preview; not yet in changelog.', 
-        'https://mockcorp.example.com/tc2-announced.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
         'blog', 
         TRUE, 
         'comp_mock|feat_ai_summary|announced|2026-10-20'
@@ -194,7 +194,7 @@ INSERT INTO entries (
         'shipped', 
         0.96, 
         'Changelog states Quick Reply is now officially renamed to AI Smart Reply.', 
-        'https://mockcorp.example.com/tc3-renamed.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
         'changelog', 
         TRUE, 
         'comp_mock|feat_ai_reply|shipped|2026-10-20'
@@ -206,7 +206,7 @@ INSERT INTO entries (
         'uncertain', 
         0.00, 
         'Target changelog URL returned HTTP 404. Marked uncertain; never assumed removed.', 
-        'https://mockcorp.example.com/tc4-missing.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
         'changelog', 
         FALSE, 
         'comp_mock|404_check|uncertain|2026-10-20'
