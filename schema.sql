@@ -109,9 +109,9 @@ ORDER BY e.retrieved_at DESC;
 -- Seed Competitors (Fixed: Added missing comma after comp_mock)
 INSERT INTO competitors (id, name, changelog_url, blog_url) VALUES
     ('comp_linear', 'Linear', 'https://linear.app/changelog', 'https://linear.app/blog'),
-    ('comp_mock', 'MockCorp (Test Suite)', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html'),
-    ('comp_tc3', 'MockCorp Rebranding', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', NULL),
-    ('comp_tc4', 'MockCorp Vanishing', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', NULL)
+    ('comp_mock', 'MockCorp (Test Suite)', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html'),
+    ('comp_tc3', 'MockCorp Rebranding', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', NULL),
+    ('comp_tc4', 'MockCorp Vanishing', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Canonical Features (Crucial for TC3 Renamed Feature Mapping)
@@ -126,7 +126,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC1', 
         'New feature in changelog', 
-        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
         'Status = shipped, dated row with source link', 
         NULL,
         'Changelog explicitly states: "Advanced CSV Export is now live and generally available."', 
@@ -135,7 +135,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC2', 
         'Feature in marketing post only', 
-        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
         'Status = announced (not shipped)', 
         NULL,
         'Blog post states: "Sneak peek at AI Summaries coming in Q1 next year. Join the waitlist."', 
@@ -144,7 +144,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC3', 
         'Feature renamed', 
-        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
         'Mapped to existing row (feat_ai_reply)', 
         NULL,
         'Matched alias "Quick Reply" in features registry array.', 
@@ -153,7 +153,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
     (
         'TC4', 
         'Changelog page removed (404)', 
-        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
+        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
         'Status = uncertain (never mark feature removed)', 
         NULL,
         'HTTP 404 Not Found returned during scrape; logged as uncertain per safety guardrail.', 
