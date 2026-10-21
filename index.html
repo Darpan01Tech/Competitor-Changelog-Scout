@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MockCorp Developer Portal</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --hover-bg: #2dd4bf;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header, main {
+            width: 100%;
+            max-width: 800px;
+        }
+        header {
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.2rem;
+        }
+        header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, border-color 0.2s;
+            display: block;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-blue);
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: rgba(59, 130, 246, 0.2);
+            color: var(--accent-blue);
+            text-transform: uppercase;
+        }
+        .card p {
+            margin-bottom: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MockCorp Developer Portal</h1>
+        <p>Hackathon Test Suite Matrix</p>
+    </header>
+    <main>
+        <div class="grid">
+            <a href="tc1-new.html" class="card">
+                <h2>TC1: Standard Release <span class="badge">Shipped</span></h2>
+                <p>Tests the AI's ability to extract a standard, explicitly shipped feature from a traditional changelog.</p>
+            </a>
+            
+            <a href="tc2-announced.html" class="card">
+                <h2>TC2: Marketing Post <span class="badge">Announced</span></h2>
+                <p>Tests the AI's ability to classify a feature as "announced" when framed as a beta or waitlist sneak peek.</p>
+            </a>
+
+            <a href="tc3-renamed.html" class="card">
+                <h2>TC3: Alias Mapping <span class="badge">Renamed</span></h2>
+                <p>Tests the pipeline's ability to map the legacy term "Quick Reply" to the canonical feature ID.</p>
+            </a>
+
+            <a href="tc4-missing.html" class="card">
+                <h2>TC4: Vanishing Page <span class="badge">Guardrail</span></h2>
+                <p>Serves as the 404 target. Will be deleted during the live demo to trigger the "uncertain" safety mechanism.</p>
+            </a>
+        </div>
+    </main>
+</body>
+</html>
