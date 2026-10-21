@@ -106,10 +106,12 @@ ORDER BY e.retrieved_at DESC;
 -- Pre-populates data so Person 1 & Person 3 can test immediately
 -- ==========================================
 
--- Seed Competitors
+-- Seed Competitors (Fixed: Added missing comma after comp_mock)
 INSERT INTO competitors (id, name, changelog_url, blog_url) VALUES
     ('comp_linear', 'Linear', 'https://linear.app/changelog', 'https://linear.app/blog'),
-    ('comp_mock', 'MockCorp (Test Suite)', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html')
+    ('comp_mock', 'MockCorp (Test Suite)', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html'),
+    ('comp_tc3', 'MockCorp Rebranding', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', NULL),
+    ('comp_tc4', 'MockCorp Vanishing', 'https://dk01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Canonical Features (Crucial for TC3 Renamed Feature Mapping)
@@ -119,99 +121,45 @@ INSERT INTO features (id, standard_name, aliases) VALUES
     ('feat_ai_summary', 'AI Summaries', ARRAY['Thread Summarizer', 'Auto Summary'])
 ON CONFLICT (id) DO NOTHING;
 
--- Seed the 4 Mandatory Hackathon Test Cases
+-- Seed the 4 Mandatory Hackathon Test Cases (Fixed: Explicit NULL for actual_result)
 INSERT INTO test_results (id, scenario, input_url, expected_result, actual_result, evidence, passed) VALUES
     (
         'TC1', 
         'New feature in changelog', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
+        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
         'Status = shipped, dated row with source link', 
-        'Status = shipped (Confidence: 0.98)', 
+        NULL,
         'Changelog explicitly states: "Advanced CSV Export is now live and generally available."', 
-        TRUE
+        FALSE
     ),
     (
         'TC2', 
         'Feature in marketing post only', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
+        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
         'Status = announced (not shipped)', 
-        'Status = announced (Confidence: 0.95)', 
+        NULL,
         'Blog post states: "Sneak peek at AI Summaries coming in Q1 next year. Join the waitlist."', 
-        TRUE
+        FALSE
     ),
     (
         'TC3', 
         'Feature renamed', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
+        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
         'Mapped to existing row (feat_ai_reply)', 
-        'Mapped Quick Reply -> feat_ai_reply (AI Smart Reply)', 
+        NULL,
         'Matched alias "Quick Reply" in features registry array.', 
-        TRUE
+        FALSE
     ),
     (
         'TC4', 
         'Changelog page removed (404)', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
+        'https://dk01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
         'Status = uncertain (never mark feature removed)', 
-        'Status = uncertain (Confidence: 0.00)', 
+        NULL,
         'HTTP 404 Not Found returned during scrape; logged as uncertain per safety guardrail.', 
-        TRUE
+        FALSE
     )
 ON CONFLICT (id) DO NOTHING;
-
--- Seed Sample Entries (Gives Person 3 immediate UI data for Approved & Pending views)
-INSERT INTO entries (
-    competitor_id, feature_id, raw_feature_name, status, confidence, reason, source_url, source_type, approved, idempotency_key
-) VALUES
-    (
-        'comp_mock', 
-        'feat_csv_export', 
-        'Advanced CSV Export', 
-        'shipped', 
-        0.98, 
-        'Explicitly marked as "now live" in the October changelog release notes.', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
-        'changelog', 
-        TRUE, 
-        'comp_mock|feat_csv_export|shipped|2026-10-20'
-    ),
-    (
-        'comp_mock', 
-        'feat_ai_summary', 
-        'AI Summaries', 
-        'announced', 
-        0.95, 
-        'Mentioned in marketing blog post as upcoming Q1 preview; not yet in changelog.', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
-        'blog', 
-        TRUE, 
-        'comp_mock|feat_ai_summary|announced|2026-10-20'
-    ),
-    (
-        'comp_mock', 
-        'feat_ai_reply', 
-        'Quick Reply (Rebranded to AI Smart Reply)', 
-        'shipped', 
-        0.96, 
-        'Changelog states Quick Reply is now officially renamed to AI Smart Reply.', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
-        'changelog', 
-        TRUE, 
-        'comp_mock|feat_ai_reply|shipped|2026-10-20'
-    ),
-    (
-        'comp_mock', 
-        NULL, 
-        'Page Fetch Failure (HTTP 404)', 
-        'uncertain', 
-        0.00, 
-        'Target changelog URL returned HTTP 404. Marked uncertain; never assumed removed.', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
-        'changelog', 
-        FALSE, 
-        'comp_mock|404_check|uncertain|2026-10-20'
-    )
-ON CONFLICT (idempotency_key) DO NOTHING;
 
 INSERT INTO runs (status, diff_summary) VALUES (
     'completed',
