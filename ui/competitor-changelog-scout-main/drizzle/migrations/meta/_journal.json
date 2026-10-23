@@ -22,6 +22,13 @@
       "when": 1792735071923,
       "tag": "0002_approval_status_and_workflow_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792770000000,
+      "tag": "0003_hackathon_stabilization",
+      "breakpoints": true
     }
   ]
 }

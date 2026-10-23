@@ -22,6 +22,12 @@
               "neverError": true,
               "responseFormat": "text"
             }
+          },
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
           }
         }
       },
@@ -37,7 +43,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const src = $('Sources').item.json;\nconst status = $json.statusCode ?? null;\nconst raw = $json.data ?? '';\nconst html = typeof raw === 'string' ? raw : JSON.stringify(raw);\n\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<head[\\s\\S]*?<\\/head>/gi, ' ')\n  .replace(/<\\/(h[1-6]|li|p|div|tr|article|section|header|main)>/gi, '\\n')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/&middot;/g, '·')\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/\\n\\s*\\n+/g, '\\n')\n  .trim();\n\nconst ok = status >= 200 && status < 300 && text.length >= 30;\n\nreturn { json: {\n  run_id: 'R-' + $execution.id,\n  test_case: src.test_case,\n  competitor_id: src.competitor_id,\n  source_type: src.source_type,\n  url: src.url,\n  retrieved_at: new Date().toISOString(),\n  http_status: status,\n  fetch_status: ok ? 'ok' : 'fetch_failed',\n  fetch_error: ok ? null : (status >= 400 ? `HTTP ${status}` : 'empty or unreadable content'),\n  clean_text: text.slice(0, 12000)\n}};"
+        "jsCode": "const src = $('Sources').item.json;\nconst status = $json.statusCode ?? null;\nconst raw = $json.data ?? '';\nconst html = typeof raw === 'string' ? raw : JSON.stringify(raw);\n\nconst text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<head[\\s\\S]*?<\\/head>/gi, ' ')\n  .replace(/<\\/(h[1-6]|li|p|div|tr|article|section|header|main)>/gi, '\\n')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/&middot;/g, '·')\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/\\n\\s*\\n+/g, '\\n')\n  .trim();\n\nconst ok = status >= 200 && status < 300 && text.length >= 30;\n\nreturn { json: {\n  run_id: 'R-' + $execution.id,\n  test_case: src.test_case,\n  competitor_id: src.competitor_id,\n  source_type: src.source_type,\n  url: src.url,\n  retrieved_at: new Date().toISOString(),\n  http_status: status,\n  fetch_status: ok ? 'ok' : 'fetch_failed',\n  fetch_error: ok ? null : (status === null ? 'no HTTP response' : status >= 400 ? 'HTTP ' + status : text.length === 0 ? 'empty successful response' : 'unreadable content'),\n  clean_text: text.slice(0, 12000)\n}};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -498,7 +504,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const c = item.json;\n  const add = (url, type) => {\n    if (!url) return;\n    const m = String(url).match(/\\/tc(\\d)[^\\/]*$/i);\n    out.push({ json: { test_case: m ? 'TC' + m[1] : null, competitor_id: c.id, source_type: type, url } });\n  };\n  add(c.changelog_url, 'changelog');\n  add(c.blog_url, 'blog');\n}\nreturn out;"
+        "jsCode": "const TC4_404_URL = ''; // Configure only a controlled endpoint verified to return HTTP 404.\nconst out = [];\nfor (const item of $input.all()) {\n const c = item.json;\n const add = (configuredUrl, type) => {\n  if (!configuredUrl) return;\n  const match = String(configuredUrl).match(/\\/tc(\\d)[^\\/]*$/i);\n  const testCase = match ? 'TC' + match[1] : null;\n  if (testCase === 'TC4' && !TC4_404_URL) return;\n  out.push({ json: { test_case: testCase, competitor_id: c.id, source_type: type, url: testCase === 'TC4' ? TC4_404_URL : configuredUrl } });\n };\n add(c.changelog_url, 'changelog');\n add(c.blog_url, 'blog');\n}\nreturn out;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -511,7 +517,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json);\nconst fetches = $('Normalize fetch').all().map(i => i.json);\nconst httpOf = tc => (fetches.find(f => f.test_case === tc) || {}).http_status ?? 'n/a';\n\nconst spec = {\n  TC1: { scenario: 'New feature in changelog',\n         expected: 'Row with status shipped, a date and a source link',\n         check: r => r.status === 'shipped' && !!r.entry_date && !!r.source_url },\n  TC2: { scenario: 'Feature in marketing post only',\n         expected: 'Marked announced, not shipped',\n         check: r => r.status === 'announced' },\n  TC3: { scenario: 'Feature renamed',\n         expected: 'Mapped to the existing row (feat_ai_reply), not a new one',\n         check: r => r.feature_id === 'feat_ai_reply' && r.matched_via === 'alias' },\n  TC4: { scenario: 'Changelog page removed or unavailable',\n         expected: 'Marked uncertain, never \"feature removed\"',\n         check: r => r.status === 'uncertain' }\n};\n\nreturn Object.keys(spec).map(tc => {\n  const r = rows.find(x => x.test_case === tc);\n  const s = spec[tc];\n  if (!r) {\n    return { json: { id: tc, scenario: s.scenario, input_url: '', expected_result: s.expected,\n      actual_result: 'No row produced for this test case', evidence: 'Workflow produced no entry', passed: false } };\n  }\n  return { json: {\n    id: tc,\n    scenario: s.scenario,\n    input_url: r.source_url,\n    expected_result: s.expected,\n    actual_result: `status=${r.status}; feature=${r.feature_id || 'none'}; matched_via=${r.matched_via}; date=${r.entry_date || 'none'}; HTTP ${httpOf(tc)}`,\n    evidence: `${r.reason} (run ${r.run_id}, source: ${r.source_url})`,\n    passed: !!s.check(r)\n  }};\n});"
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst fetches = $('Normalize fetch').all().map(i => i.json);\nconst httpOf = tc => (fetches.find(f => f.test_case === tc) || {}).http_status ?? null;\nconst spec = {\n TC1: { scenario: 'New feature in changelog', expected: 'Row with status shipped, a date and a source link', check: r => r.status === 'shipped' && !!r.entry_date && !!r.source_url },\n TC2: { scenario: 'Feature in marketing post only', expected: 'Marked announced, not shipped', check: r => r.status === 'announced' },\n TC3: { scenario: 'Feature renamed', expected: 'Mapped to the existing row (feat_ai_reply), not a new one', check: r => r.feature_id === 'feat_ai_reply' && r.matched_via === 'alias' },\n TC4: { scenario: 'Changelog page removed (404)', expected: 'Observed HTTP 404 and classified uncertain', check: r => r.status === 'uncertain' }\n};\nreturn Object.keys(spec).map(tc => {\n const r = rows.find(x => x.test_case === tc);\n const configured = !!fetches.find(f => f.test_case === tc);\n const http = httpOf(tc);\n const runnable = !!r && configured && (tc !== 'TC4' || http === 404);\n const passed = runnable && spec[tc].check(r);\n const execution_status = !runnable ? 'not_run' : passed ? 'passed' : 'failed';\n let actual_result;\n if (!configured) actual_result = 'NOT RUN: source is not configured.';\n else if (tc === 'TC4' && http !== 404) actual_result = 'NOT RUN: expected HTTP 404; observed ' + (http === null ? 'no HTTP response' : 'HTTP ' + http);\n else if (!r) actual_result = 'FAIL: no classified row was produced.';\n else actual_result = 'status=' + r.status + '; feature=' + (r.feature_id || 'none') + '; matched_via=' + r.matched_via + '; date=' + (r.entry_date || 'none') + '; HTTP ' + (http === null ? 'n/a' : http);\n return { json: { id: tc, scenario: spec[tc].scenario, input_url: r?.source_url || '', expected_result: spec[tc].expected, actual_result, evidence: runnable ? r.reason + ' (run ' + r.run_id + ', source: ' + r.source_url + ')' : null, passed, execution_status } };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -546,7 +552,8 @@
             "input_url": "={{ $json.input_url }}",
             "expected_result": "={{ $json.expected_result }}",
             "actual_result": "={{ $json.actual_result }}",
-            "evidence": "={{ $json.evidence }}"
+            "evidence": "={{ $json.evidence }}",
+            "execution_status": "={{ $json.execution_status }}"
           },
           "matchingColumns": [
             "id"
@@ -623,6 +630,15 @@
               "defaultMatch": false,
               "display": true,
               "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "execution_status",
+              "displayName": "execution_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
               "canBeUsedToMatch": false
             }
           ],
@@ -801,7 +817,8 @@
       ],
       "id": "74a54cbd-4886-498b-81f7-521389f9809e",
       "name": "Approve entries",
-      "webhookId": "39aaaf76-b32a-4926-ae09-756f19d4e162"
+      "webhookId": "39aaaf76-b32a-4926-ae09-756f19d4e162",
+      "disabled": true
     },
     {
       "parameters": {
@@ -1682,6 +1699,53 @@
           "name": "Postgres account 2"
         }
       }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const source = $json;\nconst allowedHost = 'darpan01tech.github.io';\nlet url = String(source.url || '');\nlet valid = false;\nlet reason = 'URL rejected: demo allowlist permits HTTPS on ' + allowedHost + ' only.';\ntry {\n const parsed = new URL(url);\n valid = parsed.protocol === 'https:' && parsed.hostname.toLowerCase() === allowedHost && !parsed.username && !parsed.password && (!parsed.port || parsed.port === '443');\n if (valid) url = parsed.toString();\n} catch {}\nreturn { json: { ...source, url, url_valid: valid, fetch_error: valid ? null : reason, run_id: 'R-' + $execution.id, retrieved_at: new Date().toISOString() } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        320
+      ],
+      "id": "9c97c076-4b1d-4620-8dfd-f47c124e8671",
+      "name": "Validate source URL"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "14644b65-0a9f-4dc0-a3fc-22e3c0085ef8",
+              "leftValue": "={{ $json.url_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1008,
+        320
+      ],
+      "id": "84ac9596-8bac-4ae3-a0fb-3a40d0e3107f",
+      "name": "Source URL allowed?"
     }
   ],
   "pinData": {},
@@ -1872,7 +1936,7 @@
       "main": [
         [
           {
-            "node": "Fetch page",
+            "node": "Validate source URL",
             "type": "main",
             "index": 0
           }
@@ -2016,6 +2080,35 @@
         [
           {
             "node": "Save verify status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate source URL": {
+      "main": [
+        [
+          {
+            "node": "Source URL allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source URL allowed?": {
+      "main": [
+        [
+          {
+            "node": "Fetch page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failed source",
             "type": "main",
             "index": 0
           }

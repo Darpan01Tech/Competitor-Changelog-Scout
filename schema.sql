@@ -62,22 +62,6 @@ CREATE TABLE IF NOT EXISTS entries (
     idempotency_key TEXT UNIQUE NOT NULL
 );
 
--- Keep the approved flag in sync with approval_status
-    CREATE OR REPLACE FUNCTION sync_entries_approved() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path = public
-    AS $$
-    BEGIN
-      NEW.approved := (NEW.approval_status = 'approved');
-      RETURN NEW;
-    END;
-    $$;
-    
-    DROP TRIGGER IF EXISTS trg_sync_entries_approved ON entries;
-    CREATE TRIGGER trg_sync_entries_approved
-    BEFORE INSERT OR UPDATE ON entries
-    FOR EACH ROW EXECUTE FUNCTION sync_entries_approved();
-
 -- ==========================================
 -- 5. OFFICIAL TEST CASES VERIFICATION TABLE
 -- Stores proof for TC1, TC2, TC3, and TC4 for the UI
@@ -90,6 +74,7 @@ CREATE TABLE IF NOT EXISTS test_results (
     actual_result TEXT,
     evidence TEXT,
     passed BOOLEAN NOT NULL DEFAULT FALSE,
+    execution_status TEXT NOT NULL DEFAULT 'not_run' CHECK (execution_status IN ('not_run', 'passed', 'failed')),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -97,8 +82,14 @@ CREATE TABLE IF NOT EXISTS test_results (
 DROP VIEW IF EXISTS vw_weekly_digest;
 DROP POLICY IF EXISTS "public approve" ON entries;
 DROP POLICY IF EXISTS "public review pending" ON entries;
+DROP TRIGGER IF EXISTS trg_sync_entries_approved ON entries;
+DROP FUNCTION IF EXISTS sync_entries_approved();
 ALTER TABLE entries DROP CONSTRAINT IF EXISTS entries_run_id_fkey;
 ALTER TABLE entries
+    ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending',
+    ADD COLUMN IF NOT EXISTS approved_by TEXT,
+    ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS verify_status TEXT NOT NULL DEFAULT 'unverified',
     ADD COLUMN IF NOT EXISTS run_id TEXT,
     ADD COLUMN IF NOT EXISTS test_case TEXT,
     ADD COLUMN IF NOT EXISTS matched_via TEXT,
@@ -113,7 +104,33 @@ ALTER TABLE entries ALTER COLUMN title SET NOT NULL;
 UPDATE entries SET verify_status = 'unverified' WHERE verify_status IS NULL;
 ALTER TABLE entries ALTER COLUMN verify_status SET DEFAULT 'unverified';
 ALTER TABLE entries ALTER COLUMN verify_status SET NOT NULL;
-ALTER TABLE entries DROP COLUMN IF EXISTS approved;
+-- Preserve decisions from the original boolean schema, then remove that legacy field.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'entries' AND column_name = 'approved'
+  ) THEN
+    EXECUTE 'UPDATE public.entries SET approval_status = CASE WHEN approved THEN ''approved'' ELSE ''pending'' END';
+    ALTER TABLE public.entries DROP COLUMN approved;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.entries'::regclass AND conname = 'entries_approval_status_check'
+  ) THEN
+    ALTER TABLE public.entries
+      ADD CONSTRAINT entries_approval_status_check
+      CHECK (approval_status IN ('pending', 'approved', 'rejected'));
+  END IF;
+END $$;
+
+ALTER TABLE test_results
+    ADD COLUMN IF NOT EXISTS execution_status TEXT NOT NULL DEFAULT 'not_run'
+    CHECK (execution_status IN ('not_run', 'passed', 'failed'));
 
 -- ==========================================
 -- 6. PERFORMANCE INDEXES
@@ -137,7 +154,7 @@ SELECT
     e.raw_feature_name, e.feature_id AS mapped_feature_id, e.matched_via,
     c.name AS competitor_name,
     e.status, e.confidence, e.reason, e.source_url, e.source_type,
-    e.approved, e.approval_status, e.approved_by, e.approved_at, e.verify_status
+    e.approval_status, e.approved_by, e.approved_at, e.verify_status
 FROM entries e
 JOIN competitors c ON e.competitor_id = c.id
 LEFT JOIN features f ON e.feature_id = f.id
@@ -164,50 +181,51 @@ INSERT INTO features (id, standard_name, aliases) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed the 4 Mandatory Test Cases
-INSERT INTO test_results (id, scenario, input_url, expected_result, actual_result, evidence, passed) VALUES
+INSERT INTO test_results (id, scenario, input_url, expected_result, actual_result, evidence, passed, execution_status) VALUES
     (
         'TC1', 
         'New feature in changelog', 
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
         'Status = shipped, dated row with source link', 
+        'NOT RUN: waiting for a workflow execution.',
         NULL,
-        NULL, 
-        FALSE
+        FALSE,
+        'not_run'
     ),
     (
         'TC2', 
         'Feature in marketing post only', 
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
         'Status = announced (not shipped)', 
+        'NOT RUN: waiting for a workflow execution.',
         NULL,
-        NULL,
-        FALSE
+        FALSE,
+        'not_run'
     ),
     (
         'TC3', 
         'Feature renamed', 
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
         'Mapped to existing row (feat_ai_reply)', 
+        'NOT RUN: waiting for a workflow execution.',
         NULL,
-        NULL,
-        FALSE
+        FALSE,
+        'not_run'
     ),
     (
         'TC4', 
         'Changelog page removed (404)', 
-        'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
+        '',
         'Status = uncertain (never mark feature removed)', 
+        'NOT RUN: no genuine HTTP 404 endpoint is configured.',
         NULL,
-        NULL,
-        FALSE
+        FALSE,
+        'not_run'
     )
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO runs (status, diff_summary) VALUES (
-    'completed',
-    '[{"test_case": "TC1", "change": "New shipped feature: Advanced CSV Export"}, {"test_case": "TC3", "change": "Renamed Quick Reply -> AI Smart Reply"}]'::jsonb
-);
+-- Run history is written only by actual workflow executions.
 
--- Dashboard access: public read access, with review updates limited to audit fields.
+-- Dashboard access: public read access; review decisions are read-only in the browser.
 ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE features ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
@@ -216,7 +234,7 @@ ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT ON competitors, features, entries, runs, test_results, vw_weekly_digest TO anon, authenticated;
 REVOKE UPDATE ON entries FROM PUBLIC, anon, authenticated;
-GRANT UPDATE (approval_status, approved_by, approved_at) ON entries TO anon, authenticated;
+REVOKE UPDATE (approval_status, approved_by, approved_at) ON entries FROM PUBLIC, anon, authenticated;
 GRANT ALL ON competitors, features, entries, runs, test_results TO service_role;
 GRANT SELECT ON vw_weekly_digest TO service_role;
 
@@ -227,13 +245,6 @@ CREATE POLICY "public read features" ON features FOR SELECT TO anon, authenticat
 DROP POLICY IF EXISTS "public read entries" ON entries;
 CREATE POLICY "public read entries" ON entries FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "public review pending" ON entries;
-CREATE POLICY "public review pending" ON entries FOR UPDATE TO anon, authenticated
-    USING (approval_status = 'pending')
-    WITH CHECK (
-        approval_status IN ('approved', 'rejected')
-        AND length(trim(approved_by)) > 0
-        AND approved_at IS NOT NULL
-    );
 DROP POLICY IF EXISTS "public read runs" ON runs;
 CREATE POLICY "public read runs" ON runs FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "public read test results" ON test_results;

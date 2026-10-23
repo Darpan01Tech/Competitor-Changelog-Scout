@@ -148,11 +148,7 @@ body { font-family: var(--font-sans); background-image: var(--gradient-grid); ba
   & code { font-family: var(--font-mono); font-size: .8em; }
 }
 
-@keyframes rose-pulse {
-  0%, 100% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--destructive) 25%, transparent), 0 0 0 0 color-mix(in oklab, var(--destructive) 0%, transparent); }
-  50% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--destructive) 50%, transparent), 0 0 24px -4px color-mix(in oklab, var(--destructive) 45%, transparent); }
-}
-@utility kpi-alert { animation: rose-pulse 2.4s ease-in-out infinite; }
+@utility kpi-alert { border-color: color-mix(in oklab, var(--destructive) 38%, var(--border)); }
 @utility terminal {
   background: oklch(0 0 0);
   border-radius: calc(var(--radius) - 2px);
@@ -174,4 +170,15 @@ body { font-family: var(--font-sans); background-image: var(--gradient-grid); ba
   background: color-mix(in oklab, var(--card) 85%, transparent);
   backdrop-filter: blur(12px);
   box-shadow: 0 0 0 1px var(--border), 0 20px 50px -15px oklch(0 0 0 / 80%);
+}
+
+.review-panel { box-shadow: 0 12px 36px -28px color-mix(in oklab, var(--primary) 50%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

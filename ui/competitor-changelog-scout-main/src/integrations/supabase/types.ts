@@ -170,6 +170,7 @@ export type Database = {
       test_results: {
         Row: {
           actual_result: string | null
+          execution_status: string
           evidence: string | null
           expected_result: string
           id: string
@@ -180,6 +181,7 @@ export type Database = {
         }
         Insert: {
           actual_result?: string | null
+          execution_status?: string
           evidence?: string | null
           expected_result: string
           id: string
@@ -190,6 +192,7 @@ export type Database = {
         }
         Update: {
           actual_result?: string | null
+          execution_status?: string
           evidence?: string | null
           expected_result?: string
           id?: string
