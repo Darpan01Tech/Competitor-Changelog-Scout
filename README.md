@@ -17,4 +17,53 @@ An AI Agent built for product teams to automate competitor intelligence. Instead
 - **Frontend UI:** Built with React, Tailwind CSS, and shadcn/ui (Generated via Lovable).
 - **Workflow Orchestration:** n8n (handles scraping, AI routing, and database writing).
 - **Database:** Supabase (PostgreSQL) for robust state management, idempotent writes, and tracking weekly diffs.
-- **AI Engine:** Gemini / Claude via API.
+- **AI Engine:** Groq (Qwen3 32B) for extraction and classification, with Google Gemini as the fallback model.
+
+## Architecture
+
+Mock/real changelog pages → **n8n** (fetch → clean → AI extract and classify → safety rules → save) → **Supabase** (entries, runs, test_results) → **Lovable dashboard** (human approval) → **n8n verification** (re-reads and checks stored decisions).
+
+The n8n workflow is in [`n8n/competitor-changelog-scout.json`](n8n/competitor-changelog-scout.json). It has three parts:
+
+1. **Scout chain** (runs every 12 hours or manually): reads competitors and features from Supabase, fetches each page and records the HTTP status, asks the LLM to extract entries and map them to tracked features, applies rule checks in code, saves entries as *pending*, writes the test results, and saves a weekly digest with a diff against the previously approved entries.
+2. **Verification chain**: finds rows that a human has approved or rejected, checks the stored state against the proposal and the evidence, and writes `verify_status` (`match` or `mismatch`).
+3. **Approval webhook chain** (optional alternative): lets a client approve through an n8n link instead of writing to the database directly. The dashboard currently writes decisions to Supabase itself.
+
+## Decision rules
+
+- A changelog entry that says the feature is available is **shipped**. A blog or marketing post, or wording like "coming soon" or "waitlist", is **announced**.
+- A name that matches a tracked feature or one of its aliases is mapped to the **existing** row (renames are not added as new features).
+- Anything unclear, undated or low-confidence is **uncertain**, with the reason stored.
+- A failed fetch (404, 410 or empty page) is recorded as **uncertain**, never "feature removed". This is decided by a deterministic check before the model is ever called.
+- Code enforces the rules after the model: a blog source can never be shipped, a missing date means uncertain, and a status outside the allowed set becomes uncertain.
+- Every row stores its source URL, retrieval time, date, confidence and a one-line reason.
+- Nothing is approved automatically. Rows start as `pending`, and writes use an idempotency key (`competitor|feature|status|date`) so retries cannot create duplicates.
+
+## Test cases
+
+| Case | Scenario | Result |
+|---|---|---|
+| TC1 | New feature in changelog | shipped, dated 2026-10-20, with source link |
+| TC2 | Feature in marketing post only | announced, not shipped |
+| TC3 | Feature renamed | mapped to the existing feature (`feat_ai_reply`) via alias, rename noted in the reason |
+| TC4 | Changelog page removed | uncertain, never "removed" (a missing page returns HTTP 404 and is stored as uncertain) |
+
+Actual results and evidence for each run are stored in the `test_results` table and shown in the dashboard's Test Compliance view.
+
+## How to run it
+
+1. Create a Supabase project and run `schema.sql`. Add the columns used by the workflow (`run_id`, `test_case`, `title`, `description`, `entry_date`, `matched_via`, `approval_status`, `approved_by`, `approved_at`, `verify_status`).
+2. Import `n8n/competitor-changelog-scout.json` into n8n and attach your own credentials: Postgres (Supabase session pooler), Groq and Gemini.
+3. Run the workflow manually, review the pending rows in the dashboard, then approve or reject. The verification chain then marks each decision `match` or `mismatch`.
+
+## Repository layout
+
+- `n8n/`: the exported workflow
+- `ui/`: the Lovable dashboard
+- `schema.sql`: database schema and seed data
+- `tc1-new.html` … `tc4-missing.html`, `index.html`: mock competitor pages (served by GitHub Pages) used to demonstrate the four test cases on demand
+
+## Known limitations
+
+- Pages are fetched with plain HTTP, so JavaScript-rendered changelogs need a headless-browser step (not included).
+- The weekly schedule only runs while the n8n instance is running.
