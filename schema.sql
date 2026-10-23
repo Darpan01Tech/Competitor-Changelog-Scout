@@ -26,12 +26,14 @@ CREATE TABLE IF NOT EXISTS features (
 
 -- ==========================================
 -- 3. CHANGELOG ENTRIES TABLE
--- Stores AI-extracted updates, human approval state, and idempotency lock
 -- ==========================================
 CREATE TABLE IF NOT EXISTS entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
     feature_id TEXT REFERENCES features(id) ON DELETE SET NULL,
+    run_id UUID REFERENCES runs(id) ON DELETE CASCADE,
+    test_case TEXT,
+    matched_via TEXT,
     raw_feature_name TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('shipped', 'announced', 'uncertain')),
     confidence NUMERIC(3, 2) NOT NULL DEFAULT 1.00 CHECK (confidence >= 0.00 AND confidence <= 1.00),
@@ -39,8 +41,10 @@ CREATE TABLE IF NOT EXISTS entries (
     source_url TEXT NOT NULL,
     source_type TEXT NOT NULL CHECK (source_type IN ('changelog', 'blog', 'other')),
     retrieved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    approved BOOLEAN NOT NULL DEFAULT FALSE,
-    -- Prevents duplicate entries on pipeline re-runs (Format: comp_id|raw_name|status|YYYY-MM-DD)
+    approval_status TEXT NOT NULL DEFAULT 'pending',
+    approved_by TEXT,
+    approved_at TIMESTAMPTZ,
+    verify_status TEXT,
     idempotency_key TEXT UNIQUE NOT NULL
 );
 
@@ -57,7 +61,7 @@ CREATE TABLE IF NOT EXISTS runs (
 
 -- ==========================================
 -- 5. OFFICIAL TEST CASES VERIFICATION TABLE
--- Stores proof for TC1, TC2, TC3, and TC4 for the UI & Judges
+-- Stores proof for TC1, TC2, TC3, and TC4 for the UI
 -- ==========================================
 CREATE TABLE IF NOT EXISTS test_results (
     id TEXT PRIMARY KEY CHECK (id IN ('TC1', 'TC2', 'TC3', 'TC4')),
@@ -74,28 +78,32 @@ CREATE TABLE IF NOT EXISTS test_results (
 -- 6. PERFORMANCE INDEXES
 -- Speeds up dashboard filtering and alias lookups
 -- ==========================================
-CREATE INDEX IF NOT EXISTS idx_entries_approved_date ON entries (approved, retrieved_at DESC);
+CREATE INDEX IF NOT EXISTS idx_entries_approval_date ON entries (approval_status, retrieved_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_status ON entries (status);
 CREATE INDEX IF NOT EXISTS idx_features_aliases ON features USING GIN (aliases);
 
 -- ==========================================
--- 7. FRONTEND VIEW FOR PERSON 3 (WEEKLY DIGEST)
--- Joins competitor names and canonical feature names automatically
+-- 7. FRONTEND VIEW (WEEKLY DIGEST)
 -- ==========================================
 CREATE OR REPLACE VIEW vw_weekly_digest AS
 SELECT 
     e.id,
+    e.run_id,
+    e.test_case,
+    e.retrieved_at AS entry_date, 
+    COALESCE(f.standard_name, e.raw_feature_name) AS title, 
+    e.matched_via,
     c.name AS competitor_name,
-    COALESCE(f.standard_name, e.raw_feature_name) AS display_feature_name,
     e.raw_feature_name,
-    e.feature_id AS mapped_feature_id,
     e.status,
     e.confidence,
     e.reason,
     e.source_url,
     e.source_type,
-    e.retrieved_at,
-    e.approved
+    e.approval_status,
+    e.approved_by,
+    e.approved_at,
+    e.verify_status
 FROM entries e
 JOIN competitors c ON e.competitor_id = c.id
 LEFT JOIN features f ON e.feature_id = f.id
@@ -103,10 +111,10 @@ ORDER BY e.retrieved_at DESC;
 
 -- ==========================================
 -- 8. SEED DATA (Competitors, Features, & Test Cases)
--- Pre-populates data so Person 1 & Person 3 can test immediately
+-- Pre-populates data
 -- ==========================================
 
--- Seed Competitors (Fixed: Added missing comma after comp_mock)
+-- Seed Competitors
 INSERT INTO competitors (id, name, changelog_url, blog_url) VALUES
     ('comp_linear', 'Linear', 'https://linear.app/changelog', 'https://linear.app/blog'),
     ('comp_mock', 'MockCorp (Test Suite)', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html'),
@@ -121,7 +129,7 @@ INSERT INTO features (id, standard_name, aliases) VALUES
     ('feat_ai_summary', 'AI Summaries', ARRAY['Thread Summarizer', 'Auto Summary'])
 ON CONFLICT (id) DO NOTHING;
 
--- Seed the 4 Mandatory Hackathon Test Cases (Fixed: Explicit NULL for actual_result)
+-- Seed the 4 Mandatory Test Cases
 INSERT INTO test_results (id, scenario, input_url, expected_result, actual_result, evidence, passed) VALUES
     (
         'TC1', 
