@@ -44,7 +44,6 @@ export type Entry = {
   reason: string;
   source_url: string;
   retrieved_at: string;
-  approved: boolean;
   approval_status: string;
   approved_by: string | null;
   approved_at: string | null;
@@ -54,7 +53,7 @@ export type Entry = {
 async function fetchEntries(): Promise<Entry[]> {
   const { data, error } = await supabase
     .from("vw_weekly_digest")
-    .select("id, competitor_name, display_feature_name, raw_feature_name, status, confidence, reason, source_url, retrieved_at, approved, approval_status, approved_by, approved_at, verify_status");
+    .select("id, competitor_name, display_feature_name, raw_feature_name, status, confidence, reason, source_url, retrieved_at, approval_status, approved_by, approved_at, verify_status");
   if (error) throw error;
   return (data ?? []) as Entry[];
 }
@@ -115,7 +114,7 @@ function SourceLink({ url }: { url: string }) {
 function Dashboard() {
   const { entries, setEntries, isLoading, error } = useEntries();
   const [tab, setTab] = useState("radar");
-  const approved = useMemo(() => entries.filter((e) => e.approved), [entries]);
+  const approved = useMemo(() => entries.filter((e) => e.approval_status === 'approved'), [entries]);
   const pending = useMemo(() => entries.filter(isPending), [entries]);
 
   const kpis = useMemo(() => {
