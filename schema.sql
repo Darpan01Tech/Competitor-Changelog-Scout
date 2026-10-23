@@ -41,13 +41,13 @@ CREATE TABLE IF NOT EXISTS entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
     feature_id TEXT REFERENCES features(id) ON DELETE SET NULL,
-    -- n8n execution IDs are strings and are also embedded in digest snapshots.
+-- n8n execution IDs are strings and are also embedded in digest snapshots.
     run_id TEXT,
     test_case TEXT,
-    matched_via TEXT,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     entry_date DATE,
+    matched_via TEXT CHECK (matched_via IN ('name', 'alias', 'none')),
     raw_feature_name TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('shipped', 'announced', 'uncertain')),
     confidence NUMERIC(3, 2) NOT NULL DEFAULT 1.00 CHECK (confidence >= 0.00 AND confidence <= 1.00),
@@ -61,6 +61,22 @@ CREATE TABLE IF NOT EXISTS entries (
     verify_status TEXT NOT NULL DEFAULT 'unverified' CHECK (verify_status IN ('unverified', 'match', 'mismatch')),
     idempotency_key TEXT UNIQUE NOT NULL
 );
+
+-- Keep the approved flag in sync with approval_status
+    CREATE OR REPLACE FUNCTION sync_entries_approved() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
+    BEGIN
+      NEW.approved := (NEW.approval_status = 'approved');
+      RETURN NEW;
+    END;
+    $$;
+    
+    DROP TRIGGER IF EXISTS trg_sync_entries_approved ON entries;
+    CREATE TRIGGER trg_sync_entries_approved
+    BEFORE INSERT OR UPDATE ON entries
+    FOR EACH ROW EXECUTE FUNCTION sync_entries_approved();
 
 -- ==========================================
 -- 5. OFFICIAL TEST CASES VERIFICATION TABLE
@@ -110,26 +126,18 @@ CREATE INDEX IF NOT EXISTS idx_features_aliases ON features USING GIN (aliases);
 -- ==========================================
 -- 7. FRONTEND VIEW (WEEKLY DIGEST)
 -- ==========================================
+DROP VIEW IF EXISTS vw_weekly_digest;
 CREATE VIEW vw_weekly_digest WITH (security_invoker = on) AS
-SELECT 
-    e.id,
-    e.run_id,
-    e.test_case,
-    e.retrieved_at,
-    e.entry_date,
-    COALESCE(f.standard_name, e.title, e.raw_feature_name) AS display_feature_name,
-    e.matched_via,
+SELECT
+    e.id, e.run_id, e.test_case,
+    e.entry_date, e.retrieved_at,
+    COALESCE(f.standard_name, e.title, e.raw_feature_name) AS title,
+    COALESCE(f.standard_name, e.raw_feature_name) AS display_feature_name,
+    e.title AS entry_title, e.description,
+    e.raw_feature_name, e.feature_id AS mapped_feature_id, e.matched_via,
     c.name AS competitor_name,
-    e.raw_feature_name,
-    e.status,
-    e.confidence,
-    e.reason,
-    e.source_url,
-    e.source_type,
-    e.approval_status,
-    e.approved_by,
-    e.approved_at,
-    e.verify_status
+    e.status, e.confidence, e.reason, e.source_url, e.source_type,
+    e.approved, e.approval_status, e.approved_by, e.approved_at, e.verify_status
 FROM entries e
 JOIN competitors c ON e.competitor_id = c.id
 LEFT JOIN features f ON e.feature_id = f.id
@@ -163,7 +171,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc1-new.html', 
         'Status = shipped, dated row with source link', 
         NULL,
-        'Changelog explicitly states: "Advanced CSV Export is now live and generally available."', 
+        NULL, 
         FALSE
     ),
     (
@@ -172,7 +180,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc2-announced.html', 
         'Status = announced (not shipped)', 
         NULL,
-        'Blog post states: "Sneak peek at AI Summaries coming in Q1 next year. Join the waitlist."', 
+        NULL,
         FALSE
     ),
     (
@@ -181,7 +189,7 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc3-renamed.html', 
         'Mapped to existing row (feat_ai_reply)', 
         NULL,
-        'Matched alias "Quick Reply" in features registry array.', 
+        NULL,
         FALSE
     ),
     (
@@ -190,11 +198,10 @@ INSERT INTO test_results (id, scenario, input_url, expected_result, actual_resul
         'https://darpan01tech.github.io/Competitor-Changelog-Scout/tc4-missing.html', 
         'Status = uncertain (never mark feature removed)', 
         NULL,
-        'HTTP 404 Not Found returned during scrape; logged as uncertain per safety guardrail.', 
+        NULL,
         FALSE
     )
 ON CONFLICT (id) DO NOTHING;
-
 INSERT INTO runs (status, diff_summary) VALUES (
     'completed',
     '[{"test_case": "TC1", "change": "New shipped feature: Advanced CSV Export"}, {"test_case": "TC3", "change": "Renamed Quick Reply -> AI Smart Reply"}]'::jsonb
