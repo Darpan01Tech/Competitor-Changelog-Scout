@@ -1,7 +1,7 @@
 # Competitor-Changelog-Scout
 
 
-# Live Dashboard / Demo: competitor-changelog-scout.lovable.app
+# Live Dashboard / Demo: [competitor-changelog-scout.lovable.app](https://competitor-changelog-scout.lovable.app/)
 
 An AI Agent built for product teams to automate competitor intelligence. Instead of manually reading competitor blogs and release notes, our agent scrapes updates, classifies them using AI, and presents them in a unified weekly digest for human approval.
 
