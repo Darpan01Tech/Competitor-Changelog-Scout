@@ -1,0 +1,11 @@
+ALTER TABLE public.entries ADD COLUMN approval_status text NOT NULL DEFAULT 'pending', ADD COLUMN approved_by text, ADD COLUMN approved_at timestamptz, ADD COLUMN verify_status text NOT NULL DEFAULT 'unverified';
+UPDATE public.entries SET approval_status = 'approved' WHERE approved = true;
+ALTER TABLE public.entries ADD CONSTRAINT entries_approval_status_check CHECK (approval_status IN ('pending','approved','rejected'));
+DROP POLICY "public approve" ON public.entries;
+REVOKE UPDATE ON public.entries FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.entries TO anon, authenticated;
+GRANT UPDATE (approval_status, approved, approved_by, approved_at) ON public.entries TO anon, authenticated;
+GRANT ALL ON public.entries TO service_role;
+CREATE POLICY "public review pending" ON public.entries FOR UPDATE TO anon, authenticated USING (approval_status = 'pending') WITH CHECK (approval_status IN ('approved','rejected') AND approved = (approval_status = 'approved') AND length(trim(approved_by)) > 0 AND approved_at IS NOT NULL);
+CREATE OR REPLACE VIEW public.vw_weekly_digest AS SELECT e.id, c.name AS competitor_name, COALESCE(f.standard_name, e.raw_feature_name) AS display_feature_name, e.raw_feature_name, e.feature_id AS mapped_feature_id, e.status, e.confidence, e.reason, e.source_url, e.source_type, e.retrieved_at, e.approved, e.approval_status, e.approved_by, e.approved_at, e.verify_status FROM public.entries e JOIN public.competitors c ON e.competitor_id=c.id LEFT JOIN public.features f ON e.feature_id=f.id ORDER BY e.retrieved_at DESC;
+GRANT SELECT ON public.vw_weekly_digest TO anon, authenticated, service_role;
