@@ -41,7 +41,6 @@ export type Database = {
       entries: {
         Row: {
           approval_status: string
-          approved: boolean
           approved_at: string | null
           approved_by: string | null
           competitor_id: string
@@ -49,6 +48,12 @@ export type Database = {
           feature_id: string | null
           id: string
           idempotency_key: string
+          entry_date: string | null
+          title: string
+          description: string
+          run_id: string | null
+          test_case: string | null
+          matched_via: string | null
           raw_feature_name: string
           reason: string
           retrieved_at: string
@@ -59,7 +64,6 @@ export type Database = {
         }
         Insert: {
           approval_status?: string
-          approved?: boolean
           approved_at?: string | null
           approved_by?: string | null
           competitor_id: string
@@ -67,6 +71,12 @@ export type Database = {
           feature_id?: string | null
           id?: string
           idempotency_key: string
+          entry_date?: string | null
+          title: string
+          description?: string
+          run_id?: string | null
+          test_case?: string | null
+          matched_via?: string | null
           raw_feature_name: string
           reason: string
           retrieved_at?: string
@@ -77,7 +87,6 @@ export type Database = {
         }
         Update: {
           approval_status?: string
-          approved?: boolean
           approved_at?: string | null
           approved_by?: string | null
           competitor_id?: string
@@ -85,6 +94,12 @@ export type Database = {
           feature_id?: string | null
           id?: string
           idempotency_key?: string
+          entry_date?: string | null
+          title?: string
+          description?: string
+          run_id?: string | null
+          test_case?: string | null
+          matched_via?: string | null
           raw_feature_name?: string
           reason?: string
           retrieved_at?: string
@@ -190,15 +205,20 @@ export type Database = {
       vw_weekly_digest: {
         Row: {
           approval_status: string | null
-          approved: boolean | null
           approved_at: string | null
           approved_by: string | null
           competitor_name: string | null
           confidence: number | null
           display_feature_name: string | null
+          entry_date: string | null
+          description: string | null
           id: string | null
+          matched_via: string | null
           mapped_feature_id: string | null
+          run_id: string | null
           raw_feature_name: string | null
+          test_case: string | null
+          title: string | null
           reason: string | null
           retrieved_at: string | null
           source_type: string | null

@@ -25,15 +25,29 @@ CREATE TABLE IF NOT EXISTS features (
 );
 
 -- ==========================================
--- 3. CHANGELOG ENTRIES TABLE
+-- 3. PIPELINE RUNS & DIFF SNAPSHOTS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    diff_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('running', 'waiting_approval', 'completed', 'failed'))
+);
+
+-- ==========================================
+-- 4. CHANGELOG ENTRIES TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     competitor_id TEXT NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
     feature_id TEXT REFERENCES features(id) ON DELETE SET NULL,
-    run_id UUID REFERENCES runs(id) ON DELETE CASCADE,
+    -- n8n execution IDs are strings and are also embedded in digest snapshots.
+    run_id TEXT,
     test_case TEXT,
     matched_via TEXT,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    entry_date DATE,
     raw_feature_name TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('shipped', 'announced', 'uncertain')),
     confidence NUMERIC(3, 2) NOT NULL DEFAULT 1.00 CHECK (confidence >= 0.00 AND confidence <= 1.00),
@@ -41,22 +55,11 @@ CREATE TABLE IF NOT EXISTS entries (
     source_url TEXT NOT NULL,
     source_type TEXT NOT NULL CHECK (source_type IN ('changelog', 'blog', 'other')),
     retrieved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    approval_status TEXT NOT NULL DEFAULT 'pending',
+    approval_status TEXT NOT NULL DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
     approved_by TEXT,
     approved_at TIMESTAMPTZ,
-    verify_status TEXT,
+    verify_status TEXT NOT NULL DEFAULT 'unverified' CHECK (verify_status IN ('unverified', 'match', 'mismatch')),
     idempotency_key TEXT UNIQUE NOT NULL
-);
-
--- ==========================================
--- 4. PIPELINE RUNS & DIFF SNAPSHOTS TABLE
--- Tracks weekly executions and diff comparisons
--- ==========================================
-CREATE TABLE IF NOT EXISTS runs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    diff_summary JSONB NOT NULL DEFAULT '[]'::jsonb,
-    status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('running', 'waiting_approval', 'completed', 'failed'))
 );
 
 -- ==========================================
@@ -74,6 +77,28 @@ CREATE TABLE IF NOT EXISTS test_results (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Bring installations from the earlier boolean-based schema up to date.
+DROP VIEW IF EXISTS vw_weekly_digest;
+DROP POLICY IF EXISTS "public approve" ON entries;
+DROP POLICY IF EXISTS "public review pending" ON entries;
+ALTER TABLE entries DROP CONSTRAINT IF EXISTS entries_run_id_fkey;
+ALTER TABLE entries
+    ADD COLUMN IF NOT EXISTS run_id TEXT,
+    ADD COLUMN IF NOT EXISTS test_case TEXT,
+    ADD COLUMN IF NOT EXISTS matched_via TEXT,
+    ADD COLUMN IF NOT EXISTS title TEXT,
+    ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS entry_date DATE;
+ALTER TABLE entries ALTER COLUMN run_id TYPE TEXT USING run_id::text;
+UPDATE entries
+SET title = COALESCE((SELECT standard_name FROM features WHERE id = entries.feature_id), raw_feature_name)
+WHERE title IS NULL;
+ALTER TABLE entries ALTER COLUMN title SET NOT NULL;
+UPDATE entries SET verify_status = 'unverified' WHERE verify_status IS NULL;
+ALTER TABLE entries ALTER COLUMN verify_status SET DEFAULT 'unverified';
+ALTER TABLE entries ALTER COLUMN verify_status SET NOT NULL;
+ALTER TABLE entries DROP COLUMN IF EXISTS approved;
+
 -- ==========================================
 -- 6. PERFORMANCE INDEXES
 -- Speeds up dashboard filtering and alias lookups
@@ -85,13 +110,14 @@ CREATE INDEX IF NOT EXISTS idx_features_aliases ON features USING GIN (aliases);
 -- ==========================================
 -- 7. FRONTEND VIEW (WEEKLY DIGEST)
 -- ==========================================
-CREATE OR REPLACE VIEW vw_weekly_digest AS
+CREATE VIEW vw_weekly_digest WITH (security_invoker = on) AS
 SELECT 
     e.id,
     e.run_id,
     e.test_case,
-    e.retrieved_at AS entry_date, 
-    COALESCE(f.standard_name, e.raw_feature_name) AS title, 
+    e.retrieved_at,
+    e.entry_date,
+    COALESCE(f.standard_name, e.title, e.raw_feature_name) AS display_feature_name,
     e.matched_via,
     c.name AS competitor_name,
     e.raw_feature_name,
@@ -173,3 +199,35 @@ INSERT INTO runs (status, diff_summary) VALUES (
     'completed',
     '[{"test_case": "TC1", "change": "New shipped feature: Advanced CSV Export"}, {"test_case": "TC3", "change": "Renamed Quick Reply -> AI Smart Reply"}]'::jsonb
 );
+
+-- Dashboard access: public read access, with review updates limited to audit fields.
+ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT ON competitors, features, entries, runs, test_results, vw_weekly_digest TO anon, authenticated;
+REVOKE UPDATE ON entries FROM PUBLIC, anon, authenticated;
+GRANT UPDATE (approval_status, approved_by, approved_at) ON entries TO anon, authenticated;
+GRANT ALL ON competitors, features, entries, runs, test_results TO service_role;
+GRANT SELECT ON vw_weekly_digest TO service_role;
+
+DROP POLICY IF EXISTS "public read competitors" ON competitors;
+CREATE POLICY "public read competitors" ON competitors FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "public read features" ON features;
+CREATE POLICY "public read features" ON features FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "public read entries" ON entries;
+CREATE POLICY "public read entries" ON entries FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "public review pending" ON entries;
+CREATE POLICY "public review pending" ON entries FOR UPDATE TO anon, authenticated
+    USING (approval_status = 'pending')
+    WITH CHECK (
+        approval_status IN ('approved', 'rejected')
+        AND length(trim(approved_by)) > 0
+        AND approved_at IS NOT NULL
+    );
+DROP POLICY IF EXISTS "public read runs" ON runs;
+CREATE POLICY "public read runs" ON runs FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "public read test results" ON test_results;
+CREATE POLICY "public read test results" ON test_results FOR SELECT TO anon, authenticated USING (true);

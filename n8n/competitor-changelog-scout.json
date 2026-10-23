@@ -213,7 +213,6 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "approved": false,
             "confidence": "={{ $json.confidence }}",
             "feature_id": "={{ $json.feature_id }}",
             "competitor_id": "={{ $json.competitor_id }}",
@@ -324,15 +323,6 @@
               "defaultMatch": false,
               "display": true,
               "type": "dateTime",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "approved",
-              "displayName": "approved",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "boolean",
               "canBeUsedToMatch": true
             },
             {
@@ -754,7 +744,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT competitor_id, feature_id, title, raw_feature_name, status,\n       to_char(entry_date,'YYYY-MM-DD') AS entry_date\nFROM entries\nWHERE approved = true;",
+        "query": "SELECT competitor_id, feature_id, title, raw_feature_name, status,\n       to_char(entry_date,'YYYY-MM-DD') AS entry_date\nFROM entries\nWHERE approval_status = 'approved';",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -842,7 +832,6 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "approved": "={{ $json.decision === 'approved' }}",
             "id": "={{ $json.id }}",
             "approval_status": "={{ $json.decision }}",
             "approved_by": "={{ $json.approved_by }}",
@@ -951,15 +940,6 @@
               "type": "dateTime",
               "canBeUsedToMatch": true,
               "removed": true
-            },
-            {
-              "id": "approved",
-              "displayName": "approved",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "boolean",
-              "canBeUsedToMatch": true
             },
             {
               "id": "idempotency_key",
@@ -1092,7 +1072,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, approval_status, approved, approved_by\nFROM entries\nWHERE id IN ({{ $('Validate decisions').all().map(i => \"'\" + i.json.id + \"'\").join(',') }});",
+        "query": "SELECT id, approval_status, approved_by\nFROM entries\nWHERE id IN ({{ $('Validate decisions').all().map(i => \"'\" + i.json.id + \"'\").join(',') }});",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -1113,7 +1093,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const wanted = $('Validate decisions').all().map(i => i.json);\nconst got = new Map($('Read back').all().map(i => [i.json.id, i.json]));\nreturn wanted.map(w => {\n  const g = got.get(w.id);\n  const ok = !!g && g.approval_status === w.decision && g.approved === (w.decision === 'approved');\n  return { json: { id: w.id, verify_status: ok ? 'match' : 'mismatch' } };\n});"
+        "jsCode": "const wanted = $('Validate decisions').all().map(i => i.json);\nconst got = new Map($('Read back').all().map(i => [i.json.id, i.json]));\nreturn wanted.map(w => {\n  const g = got.get(w.id);\n  const ok = !!g && g.approval_status === w.decision;\n  return { json: { id: w.id, verify_status: ok ? 'match' : 'mismatch' } };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1244,16 +1224,6 @@
               "defaultMatch": false,
               "display": true,
               "type": "dateTime",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "approved",
-              "displayName": "approved",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "boolean",
               "canBeUsedToMatch": true,
               "removed": true
             },
@@ -1427,7 +1397,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT e.id, e.run_id, e.test_case, e.title, e.status, e.source_url, e.reason,\n       to_char(e.entry_date,'YYYY-MM-DD') AS entry_date,\n       e.approval_status, e.approved, e.approved_by, e.approved_at,\n       (SELECT it->>'status'\n          FROM runs r, jsonb_array_elements((r.diff_summary::jsonb)->'items') it\n         WHERE (r.diff_summary::jsonb)->>'run_id' = e.run_id\n           AND it->>'title' = e.title\n         LIMIT 1) AS proposed_status\nFROM entries e\nWHERE e.approval_status IN ('approved','rejected')\n  AND e.verify_status = 'unverified';",
+        "query": "SELECT e.id, e.run_id, e.test_case, e.title, e.status, e.source_url, e.reason,\n       to_char(e.entry_date,'YYYY-MM-DD') AS entry_date,\n       e.approval_status, e.approved_by, e.approved_at,\n       (SELECT it->>'status'\n          FROM runs r, jsonb_array_elements((r.diff_summary::jsonb)->'items') it\n         WHERE (r.diff_summary::jsonb)->>'run_id' = e.run_id\n           AND it->>'title' = e.title\n         LIMIT 1) AS proposed_status\nFROM entries e\nWHERE e.approval_status IN ('approved','rejected')\n  AND e.verify_status = 'unverified';",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -1448,7 +1418,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r.id);\nreturn rows.map(r => {\n  const problems = [];\n  if (r.approval_status === 'approved' && r.approved !== true) problems.push('approved flag is not true');\n  if (r.approval_status === 'rejected' && r.approved !== false) problems.push('rejected row still has approved=true');\n  if (!r.approved_by) problems.push('approved_by missing');\n  if (!r.approved_at) problems.push('approved_at missing');\n  if (!r.source_url || !r.reason) problems.push('evidence missing');\n  if (r.approval_status === 'approved' && r.status !== 'uncertain' && !r.entry_date) problems.push('dated evidence missing');\n  if (r.proposed_status && r.proposed_status !== r.status) problems.push(`status changed since proposal (${r.proposed_status} -> ${r.status})`);\n  return { json: {\n    id: r.id,\n    verify_status: problems.length ? 'mismatch' : 'match',\n    note: problems.length ? problems.join('; ') : (r.proposed_status ? 'matches the proposal' : 'checked without a digest snapshot')\n  }};\n});;"
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r.id);\nreturn rows.map(r => {\n  const problems = [];\n  if (!r.approved_by) problems.push('approved_by missing');\n  if (!r.approved_at) problems.push('approved_at missing');\n  if (!r.source_url || !r.reason) problems.push('evidence missing');\n  if (r.approval_status === 'approved' && r.status !== 'uncertain' && !r.entry_date) problems.push('dated evidence missing');\n  if (r.proposed_status && r.proposed_status !== r.status) problems.push(`status changed since proposal (${r.proposed_status} -> ${r.status})`);\n  return { json: {\n    id: r.id,\n    verify_status: problems.length ? 'mismatch' : 'match',\n    note: problems.length ? problems.join('; ') : (r.proposed_status ? 'matches the proposal' : 'checked without a digest snapshot')\n  }};\n});;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1580,16 +1550,6 @@
               "defaultMatch": false,
               "display": true,
               "type": "dateTime",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "approved",
-              "displayName": "approved",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "boolean",
               "canBeUsedToMatch": true,
               "removed": true
             },

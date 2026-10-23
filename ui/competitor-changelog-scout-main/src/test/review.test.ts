@@ -3,11 +3,11 @@ import { isPending, reviewUpdate, verificationStatus } from "@/lib/review";
 
 describe("Entry review rules", () => {
   const now = new Date("2026-10-23T05:57:00.000Z");
-  it("approves using exactly the four requested columns", () => {
-    expect(reviewUpdate("approved", " Amey ", now)).toEqual({ approval_status: "approved", approved: true, approved_by: "Amey", approved_at: "2026-10-23T05:57:00.000Z" });
+  it("approves using the approval status and reviewer audit columns", () => {
+    expect(reviewUpdate("approved", " Amey ", now)).toEqual({ approval_status: "approved", approved_by: "Amey", approved_at: "2026-10-23T05:57:00.000Z" });
   });
-  it("rejects using exactly the four requested columns", () => {
-    expect(reviewUpdate("rejected", "Amey", now)).toEqual({ approval_status: "rejected", approved: false, approved_by: "Amey", approved_at: "2026-10-23T05:57:00.000Z" });
+  it("rejects using the approval status and reviewer audit columns", () => {
+    expect(reviewUpdate("rejected", "Amey", now)).toEqual({ approval_status: "rejected", approved_by: "Amey", approved_at: "2026-10-23T05:57:00.000Z" });
   });
   it("requires the reviewer name", () => {
     expect(() => reviewUpdate("approved", "  ", now)).toThrow();

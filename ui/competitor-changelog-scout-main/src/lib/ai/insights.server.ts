@@ -31,7 +31,7 @@ async function loadApproved() {
   const { data, error } = await sb
     .from("vw_weekly_digest")
     .select("competitor_name, display_feature_name, status, confidence, reason, source_url, retrieved_at")
-    .eq("approved", true)
+    .eq("approval_status", "approved")
     .limit(200);
   if (error) throw new Error(error.message);
   return data ?? [];

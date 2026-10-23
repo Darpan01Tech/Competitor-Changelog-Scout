@@ -52,7 +52,7 @@ Actual results and evidence for each run are stored in the `test_results` table 
 
 ## How to run it
 
-1. Create a Supabase project and run `schema.sql`. Add the columns used by the workflow (`run_id`, `test_case`, `title`, `description`, `entry_date`, `matched_via`, `approval_status`, `approved_by`, `approved_at`, `verify_status`).
+1. Create a Supabase project and run `schema.sql`. It defines the database fields, review status, dashboard view, access policies, and demo seed data used by both the dashboard and workflow.
 2. Import `n8n/competitor-changelog-scout.json` into n8n and attach your own credentials: Postgres (Supabase session pooler), Groq and Gemini.
 3. Run the workflow manually, review the pending rows in the dashboard, then approve or reject. The verification chain then marks each decision `match` or `mismatch`.
 

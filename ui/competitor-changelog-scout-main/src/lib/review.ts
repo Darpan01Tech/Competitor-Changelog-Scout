@@ -5,7 +5,6 @@ export function reviewUpdate(decision: ReviewDecision, reviewer: string, now = n
   if (!name) throw new Error("Enter the reviewer’s name before making a decision.");
   return {
     approval_status: decision,
-    approved: decision === "approved",
     approved_by: name,
     approved_at: now.toISOString(),
   };
