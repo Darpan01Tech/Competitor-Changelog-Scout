@@ -68,8 +68,32 @@ export const DEMO_ENTRIES: Entry[] = [
 ];
 
 export const DEMO_TEST_RESULTS = [
-  { id: "TC1", scenario: "New feature in changelog", expected_result: "Status = shipped, dated row with source link", passed: false, execution_status: "not_run" },
-  { id: "TC2", scenario: "Feature in marketing post only", expected_result: "Status = announced (not shipped)", passed: false, execution_status: "not_run" },
-  { id: "TC3", scenario: "Feature renamed", expected_result: "Mapped to existing row (feat_ai_reply)", passed: false, execution_status: "not_run" },
-  { id: "TC4", scenario: "Changelog page removed (404)", expected_result: "Status = uncertain (never mark feature removed)", passed: false, execution_status: "not_run" },
+  {
+    id: "TC1",
+    scenario: "New feature in changelog",
+    expected_result: "Status = shipped, dated row with source link",
+    passed: false,
+    execution_status: "not_run",
+  },
+  {
+    id: "TC2",
+    scenario: "Feature in marketing post only",
+    expected_result: "Status = announced (not shipped)",
+    passed: false,
+    execution_status: "not_run",
+  },
+  {
+    id: "TC3",
+    scenario: "Feature renamed",
+    expected_result: "Mapped to existing row (feat_ai_reply)",
+    passed: false,
+    execution_status: "not_run",
+  },
+  {
+    id: "TC4",
+    scenario: "Changelog page removed (404)",
+    expected_result: "Status = uncertain (never mark feature removed)",
+    passed: false,
+    execution_status: "not_run",
+  },
 ];

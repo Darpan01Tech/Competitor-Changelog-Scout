@@ -11,7 +11,9 @@ describe("session-only Decision Gate demo", () => {
 
   it("keeps local demo test scenarios explicitly not run", () => {
     expect(DEMO_TEST_RESULTS.map((result) => result.id)).toEqual(["TC1", "TC2", "TC3", "TC4"]);
-    expect(DEMO_TEST_RESULTS.every((result) => result.execution_status === "not_run" && !result.passed)).toBe(true);
+    expect(
+      DEMO_TEST_RESULTS.every((result) => result.execution_status === "not_run" && !result.passed),
+    ).toBe(true);
   });
 
   it("moves an accepted item out of the pending queue", () => {

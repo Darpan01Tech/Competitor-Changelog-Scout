@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Sparkles, Square, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUGGESTIONS = [
   "Which competitors are investing in AI features?",
@@ -26,9 +27,16 @@ export function AskInsights() {
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      const res = await fetch("/api/insights", {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env["VITE_SUPABASE_URL"]}/functions/v1/insights`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
+          Authorization: `Bearer ${session?.access_token ?? import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]}`,
+        },
         body: JSON.stringify({ question: text }),
         signal: ac.signal,
       });
@@ -81,7 +89,13 @@ export function AskInsights() {
           className="flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
         />
         {loading ? (
-          <Button type="button" size="icon" variant="secondary" onClick={() => abortRef.current?.abort()} aria-label="Stop">
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            onClick={() => abortRef.current?.abort()}
+            aria-label="Stop"
+          >
             <Square />
           </Button>
         ) : (
@@ -121,7 +135,11 @@ export function AskInsights() {
         </div>
       )}
 
-      {error && <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+      {error && (
+        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

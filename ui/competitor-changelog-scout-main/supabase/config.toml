@@ -1,1 +1,13 @@
 project_id = "uufkfhiltxqpfzvbgota"
+
+[functions.insights]
+verify_jwt = false
+
+[functions.review]
+verify_jwt = true
+
+[functions.scan-competitors]
+verify_jwt = false
+
+[functions.verify-entries]
+verify_jwt = false
