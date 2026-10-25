@@ -168,18 +168,20 @@ export type Database = {
         Relationships: [];
       };
       edge_rate_limits: {
-        Row: { attempted_at: string; bucket_key: string; function_name: string; id: number };
+        Row: {
+          attempted_at: string;
+          bucket_key: string;
+          function_name: string;
+        };
         Insert: {
           attempted_at?: string;
           bucket_key: string;
           function_name: string;
-          id?: number;
         };
         Update: {
           attempted_at?: string;
           bucket_key?: string;
           function_name?: string;
-          id?: number;
         };
         Relationships: [];
       };
