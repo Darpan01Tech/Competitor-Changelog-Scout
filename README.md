@@ -174,8 +174,9 @@ cp .env.example .env.local
 Configure the frontend variables in `.env.local`:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+VITE_DASHBOARD_REFRESH_INTERVAL_MS=15000
 ```
 
 Configure backend-only credentials separately using Supabase secrets. Depending on the enabled functionality, these may include:
