@@ -39,7 +39,7 @@ Alternatively, if your deployed authentication setup supports the reviewer accou
 - Support competitive analysis by highlighting potentially important updates.
 - Use Groq with the configured `qwen/qwen3.8-27b` model for AI-powered workflows.
 
-The collector can also use Google Gemini as a fallback when `GEMINI_API_KEY` is configured.
+The project also has a Google Gemini model configured as an additional AI option. Its fallback behavior depends on the active workflow configuration.
 
 AI-generated insights are intended to support human analysis rather than replace independent verification or business judgment.
 
@@ -51,9 +51,10 @@ AI-generated insights are intended to support human analysis rather than replace
 
 ### 4. Automated Source Scanning
 - Collect updates from explicitly configured HTTPS sources.
-- Run scheduled scanning through Supabase's PostgreSQL scheduling capabilities.
-- Use `pg_cron` and `pg_net` to trigger backend Edge Functions.
-- Avoid duplicate persisted results through an idempotency constraint.
+- Use the project's n8n workflow to orchestrate source fetching, content normalization, AI extraction and classification, rule enforcement, and database writes.
+- The exported n8n workflow includes a Schedule Trigger configured for a 12-hour interval and a manual trigger for testing.
+- The Supabase backend also supports scheduled Edge Function invocation through PostgreSQL `pg_cron` and `pg_net`. The active scheduling path depends on the deployment configuration.
+- Prevent duplicate persisted results through an idempotency constraint.
 
 ### 5. Backend Verification
 - Use a dedicated verification Edge Function to check collected records.
@@ -72,7 +73,7 @@ The application follows a straightforward workflow:
 3. **Persist records:** Unique results are stored in Supabase.
 4. **Generate insights:** AI-powered workflows analyze relevant changelog information.
 5. **Review findings:** Users explore updates, examine insights, and use the review workflow.
-6. **Automate collection:** Supabase scheduling triggers configured scanning functions.
+6. **Automate collection:** The project includes an n8n workflow with a configured 12-hour Schedule Trigger. Supabase also supports scheduled Edge Function invocation through `pg_cron` and `pg_net`; the active production path depends on deployment configuration.
 
 ## Technology Stack
 
@@ -87,9 +88,9 @@ The application follows a straightforward workflow:
 | Backend Logic | Supabase Edge Functions |
 | AI Provider | Groq |
 | Primary AI Model | `qwen/qwen3.8-27b` |
-| Optional AI Fallback | Google Gemini |
-| Scheduled Jobs | PostgreSQL `pg_cron` and `pg_net` |
-| Frontend Deployment | Render Static Site |
+| Additional Configured AI Model | Google Gemini |
+| Workflow Orchestration | n8n |
+| Scheduled Automation | n8n Schedule Trigger (12-hour interval in the exported workflow); Supabase PostgreSQL `pg_cron` and `pg_net` are also supported for Edge Function scheduling |
 
 ## Architecture
 
@@ -110,8 +111,15 @@ The project includes four Edge Functions:
 - **`scan-competitors`** — Collects information from configured competitor sources.
 - **`verify-entries`** — Handles record verification.
 
-### Scheduling
-Scheduled source collection uses PostgreSQL `pg_cron` and `pg_net` to invoke Edge Functions. n8n is not required for the production scheduling workflow.
+### Workflow Orchestration and Scheduling
+
+The project includes an n8n workflow for source collection and processing. The exported workflow contains a manual trigger for on-demand runs and a Schedule Trigger configured for a 12-hour interval.
+
+The workflow retrieves competitor and tracked-feature data from PostgreSQL, fetches configured pages, normalizes their text, uses an AI chain with structured output to extract and classify entries, applies rule-based checks, and saves entries and test results to the database. It also builds a digest by comparing collected entries with previously approved records.
+
+The Supabase backend separately supports scheduling through PostgreSQL `pg_cron` and `pg_net` to invoke Edge Functions. The exported workflow confirms that n8n is configured, but does not by itself confirm that it is currently active in production. Confirm which scheduler is enabled in the deployed environment and avoid overlapping schedules unless intentional.
+
+The exported workflow also contains an approval webhook marked as disabled. Do not describe this webhook as an active production approval endpoint unless it has been enabled and secured.
 
 ### Database
 The database schema and seed data are documented in `schema.sql`. Scheduling-related database changes are maintained through additive Supabase migrations.
@@ -264,7 +272,7 @@ The repository also contains the application configuration and supporting files 
 - Only explicitly allowlisted HTTPS hosts can be accessed by the collector.
 - AI-generated insights may require human review and verification.
 - The dashboard's sample review controls are session-only; persisted review actions use the protected backend workflow.
-- Automated collection requires the appropriate Supabase configuration, secrets, and scheduled jobs.
+- Automated collection requires the appropriate n8n workflow activation and credentials and/or the relevant Supabase configuration, secrets, and scheduled jobs, depending on the deployment path.
 - A successful frontend deployment alone does not guarantee that every backend function or scheduled workflow is configured correctly.
 
 ## Development Approach
