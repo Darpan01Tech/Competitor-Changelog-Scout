@@ -85,8 +85,6 @@ The project includes these Edge Functions:
 
 The workflow retrieves competitor and tracked-feature data, fetches configured pages, normalizes their text, extracts and classifies entries, applies rule-based checks, and saves records and test results. It can also build a digest by comparing collected entries with previously approved records.
 
-The exported workflow contains a Schedule Trigger configured for a 12-hour interval, but the export alone does not confirm that it is enabled in production. An approval webhook in the exported workflow is disabled and should not be considered an active production endpoint unless it has been enabled and secured.
-
 ### Database
 
 The root-level `schema.sql` documents the database schema and seed data. Additional database migrations are kept under the frontend application's Supabase and Drizzle migration directories.
