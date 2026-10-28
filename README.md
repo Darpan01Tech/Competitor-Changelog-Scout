@@ -1,185 +1,142 @@
 # Competitor Changelog Scout
 
-**Track competitor updates. Discover product changes. Turn changelogs into actionable insights.**
+**Track competitor updates and review important product changes in one place.**
 
 [Live Demo](https://competitor-changelog-scout.onrender.com) · [GitHub Repository](https://github.com/Darpan01Tech/Competitor-Changelog-Scout)
 
-Competitor Changelog Scout is an AI-assisted competitive intelligence dashboard designed to help teams monitor competitor product updates, analyze changelogs, and identify meaningful changes in the competitive landscape.
-
-Instead of manually checking multiple competitor websites and product update pages, the platform provides a centralized dashboard for reviewing collected updates, understanding their potential impact, and organizing findings for further analysis.
-
-The project combines a React-based dashboard, Supabase backend services, automated source collection, and AI-powered insights into a single application.
+Competitor Changelog Scout is a dashboard for collecting competitor product updates, summarizing them with AI, and helping users review their possible impact. Instead of checking each website separately, users can review collected updates in one place.
 
 ## Live Demo
 
-**Try the application:** https://competitor-changelog-scout.onrender.com
+Try the application: https://competitor-changelog-scout.onrender.com
 
-### Demo Login Credentials
+Open the demo and sign in as a reviewer if access is enabled. Contact the team if you need login details. Please do not enter personal or sensitive information in the shared demo.
 
-Use the following credentials to explore the application:
+## Features
 
-- **Email:** `darpantusharkotak@gmail.com`
-- **Password:** `Dkotak`
+### Competitor update monitoring
+- View collected changelog entries in one dashboard.
+- Review updates from configured sources.
+- Keep findings organized for further analysis.
 
-Alternatively, if your deployed authentication setup supports the reviewer account, use the reviewer sign-in option with the credentials provided for that account.
+### AI-assisted insights
+- Generate summaries and classifications of collected updates.
+- Use Groq with the configured `qwen/qwen3.8-27b` model in AI-powered workflows.
+- Treat AI-generated results as suggestions and check important findings against their original sources.
 
-*Note: These are demonstration credentials intended for evaluation. Please avoid using them for personal or sensitive information.*
+### Review workflow
+- Review collected updates in the dashboard.
+- The dashboard includes local, session-only sample review controls.
+- Persisted reviewer actions are handled through a protected Supabase Edge Function and restricted to an allowlisted authenticated user.
 
-## Key Features
+### Source collection and validation
+- Fetch content from configured HTTPS sources.
+- Use n8n to coordinate source fetching, text normalization, AI extraction and classification, rule checks, and database writes.
+- Apply server-side checks and request limits during collection.
+- Use an idempotency constraint to help prevent duplicate records.
+- Restrict collection to configured hosts using the `SCOUT_ALLOWED_HOSTS` secret.
 
-### 1. Centralized Competitor Monitoring
-- Track competitor changelog entries in one dashboard.
-- Review product updates and changes collected from configured sources.
-- Reduce the need for repetitive manual research.
-- Organize competitor intelligence for easier review.
-
-### 2. AI-Powered Insights
-- Use AI to help interpret collected changelog entries.
-- Generate concise summaries and insights from product changes.
-- Support competitive analysis by highlighting potentially important updates.
-- Use Groq with the configured `qwen/qwen3.8-27b` model for AI-powered workflows.
-
-The project also has a Google Gemini model configured as an additional AI option. Its fallback behavior depends on the active workflow configuration.
-
-AI-generated insights are intended to support human analysis rather than replace independent verification or business judgment.
-
-### 3. Review Workflow
-- Review collected competitor updates.
-- Use the dashboard's local, session-only sample review controls.
-- Support protected, persisted reviewer actions through a dedicated Supabase Edge Function.
-- Restrict persisted review writes to an allowlisted authenticated user.
-
-### 4. Automated Source Scanning
-- Collect updates from explicitly configured HTTPS sources.
-- Use the project's n8n workflow to orchestrate source fetching, content normalization, AI extraction and classification, rule enforcement, and database writes.
-- The exported n8n workflow includes a Schedule Trigger configured for a 12-hour interval and a manual trigger for testing.
-- The Supabase backend also supports scheduled Edge Function invocation through PostgreSQL `pg_cron` and `pg_net`. The active scheduling path depends on the deployment configuration.
-- Prevent duplicate persisted results through an idempotency constraint.
-
-### 5. Backend Verification
-- Use a dedicated verification Edge Function to check collected records.
-- Apply server-side validation and request limits during source collection.
-- Restrict collection to configured hosts through the `SCOUT_ALLOWED_HOSTS` secret.
-- Avoid automatically following redirects when fetching configured sources.
-
-**Important:** Collection is limited to explicitly configured hosts. Configure only mock, owned, or otherwise authorized competitor sources that you intend to scan.
+Only configure mock sources, websites you own, or sources you are authorized to access. Collection depends on source availability and page structure.
 
 ## How It Works
 
-The application follows a straightforward workflow:
+1. Configure the source hosts the collector is allowed to access.
+2. Fetch and normalize content from those sources.
+3. Extract and classify possible updates using the configured AI workflow and rule-based checks.
+4. Store unique records in Supabase.
+5. Review entries and AI-generated insights in the dashboard.
 
-1. **Configure sources:** Specify the competitor hosts that the collector is permitted to access.
-2. **Collect updates:** The backend fetches permitted sources and processes their content.
-3. **Persist records:** Unique results are stored in Supabase.
-4. **Generate insights:** AI-powered workflows analyze relevant changelog information.
-5. **Review findings:** Users explore updates, examine insights, and use the review workflow.
-6. **Automate collection:** The project includes an n8n workflow with a configured 12-hour Schedule Trigger. Supabase also supports scheduled Edge Function invocation through `pg_cron` and `pg_net`; the active production path depends on deployment configuration.
+The repository includes an n8n workflow with a manual trigger and a 12-hour Schedule Trigger. The exported workflow is not proof that scheduled runs are active in production; activation, credentials, and deployment settings must be checked. Supabase scheduling through PostgreSQL `pg_cron` and `pg_net` is also supported in the project configuration, but the active production scheduling path depends on deployment setup.
 
 ## Technology Stack
 
 | Component | Technology |
 |---|---|
-| Frontend | React 19 |
-| Build Tool | Vite |
+| Frontend | React 19, TypeScript, Vite |
 | Styling | Tailwind CSS |
 | Routing | TanStack Router |
 | Database | Supabase PostgreSQL |
 | Authentication | Supabase Auth |
-| Backend Logic | Supabase Edge Functions |
-| AI Provider | Groq |
-| Primary AI Model | `qwen/qwen3.8-27b` |
-| Additional Configured AI Model | Google Gemini |
-| Workflow Orchestration | n8n |
-| Scheduled Automation | n8n Schedule Trigger (12-hour interval in the exported workflow); Supabase PostgreSQL `pg_cron` and `pg_net` are also supported for Edge Function scheduling |
+| Backend logic | Supabase Edge Functions |
+| AI provider | Groq |
+| Configured AI model | `qwen/qwen3.8-27b` |
+| Workflow orchestration | n8n |
 
 ## Architecture
 
 ### Frontend
-The frontend is a React single-page application built with Vite. Its production build generates static assets in:
+
+The frontend is a React single-page application built with Vite. Its production build is generated in:
 
 `ui/competitor-changelog-scout-main/dist/`
 
-The static application communicates with Supabase for supported backend operations.
+The application uses Supabase for supported backend operations.
 
-### Backend
-Supabase provides the database, authentication, row-level security policies, and server-side processing.
+### Supabase Edge Functions
 
-The project includes four Edge Functions:
+The project includes these Edge Functions:
 
-- **`insights`** — Handles AI-powered insight generation.
-- **`review`** — Handles protected reviewer writes.
-- **`scan-competitors`** — Collects information from configured competitor sources.
-- **`verify-entries`** — Handles record verification.
+- `insights` — handles AI-powered insight generation.
+- `review` — handles protected reviewer writes.
+- `scan-competitors` — collects content from configured sources.
+- `verify-entries` — handles record verification.
 
-### Workflow Orchestration and Scheduling
+### n8n workflow
 
-The project includes an n8n workflow for source collection and processing. The exported workflow contains a manual trigger for on-demand runs and a Schedule Trigger configured for a 12-hour interval.
+The workflow retrieves competitor and tracked-feature data, fetches configured pages, normalizes their text, extracts and classifies entries, applies rule-based checks, and saves records and test results. It can also build a digest by comparing collected entries with previously approved records.
 
-The workflow retrieves competitor and tracked-feature data from PostgreSQL, fetches configured pages, normalizes their text, uses an AI chain with structured output to extract and classify entries, applies rule-based checks, and saves entries and test results to the database. It also builds a digest by comparing collected entries with previously approved records.
-
-The Supabase backend separately supports scheduling through PostgreSQL `pg_cron` and `pg_net` to invoke Edge Functions. The exported workflow confirms that n8n is configured, but does not by itself confirm that it is currently active in production. Confirm which scheduler is enabled in the deployed environment and avoid overlapping schedules unless intentional.
-
-The exported workflow also contains an approval webhook marked as disabled. Do not describe this webhook as an active production approval endpoint unless it has been enabled and secured.
+The exported workflow contains a Schedule Trigger configured for a 12-hour interval, but the export alone does not confirm that it is enabled in production. An approval webhook in the exported workflow is disabled and should not be considered an active production endpoint unless it has been enabled and secured.
 
 ### Database
-The database schema and seed data are documented in `schema.sql`. Scheduling-related database changes are maintained through additive Supabase migrations.
 
-Production database changes should be reviewed carefully before applying them.
+The root-level `schema.sql` documents the database schema and seed data. Additional database migrations are kept under the frontend application's Supabase and Drizzle migration directories.
 
-## Security Considerations
+## Security Notes
 
-Security is an important part of the application's design.
+- Keep backend API keys and service credentials in Supabase secrets or the appropriate deployment environment.
+- Use placeholders in documentation rather than real project credentials.
+- Frontend variables prefixed with `VITE_` are included in the client-side build. Only publishable values should be used there.
+- Never expose Supabase service-role keys or Groq API keys in frontend code or commit them to GitHub.
+- Apply appropriate Supabase Row Level Security (RLS) policies.
+- Collection is restricted to configured HTTPS hosts and uses request limits and redirect restrictions.
 
-- Store backend API keys and service credentials in Supabase secrets or the appropriate deployment environment.
-- Use `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` for frontend configuration.
-- Never expose Supabase service-role keys, Groq API keys, or Gemini API keys in frontend code.
-- Apply appropriate Supabase Row Level Security (RLS) policies to database operations.
-- Restrict persisted reviewer writes to the intended authenticated users.
-- Allow the collector to access only explicitly configured HTTPS hosts.
-- Use request timeouts, response-size limits, and redirect restrictions during collection.
-
-Frontend environment variables prefixed with `VITE_` are exposed to client-side code after the application is built. Only publishable values should be placed there.
-
-The demo account is for evaluation only. Do not store private or sensitive data in a shared demo environment.
-
-## Getting Started Locally
+## Run Locally
 
 ### Prerequisites
 
 - Node.js and npm
 - A Supabase project
 - Groq API access for AI-powered functionality
-- Google Gemini API access if the optional fallback is required
-- Supabase CLI for backend deployment
+- Supabase CLI for deploying Edge Functions
 
-### 1. Clone the Repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Darpan01Tech/Competitor-Changelog-Scout.git
 cd Competitor-Changelog-Scout
 ```
 
-### 2. Navigate to the Frontend
+### 2. Open the frontend directory
 
 ```bash
 cd ui/competitor-changelog-scout-main
 ```
 
-### 3. Install Dependencies
+### 3. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 4. Configure Environment Variables
+### 4. Configure environment variables
 
-Create your local environment file:
+Copy the example file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Configure the frontend variables in `.env.local`:
+Set the frontend values in `.env.local` using your own Supabase project details:
 
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -187,26 +144,19 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 VITE_DASHBOARD_REFRESH_INTERVAL_MS=15000
 ```
 
-Configure backend-only credentials separately using Supabase secrets. Depending on the enabled functionality, these may include:
+Configure backend-only secrets separately in Supabase as required by the deployed functions, including `GROQ_API_KEY` and `SCOUT_ALLOWED_HOSTS`. Do not commit real credentials.
 
-- `GROQ_API_KEY`
-- `GEMINI_API_KEY` (optional fallback)
-- `SCOUT_ALLOWED_HOSTS`
-- Any additional secrets documented in `audit/DEPLOYMENT_GUIDE.md`
-
-Do not commit real API keys or private credentials to GitHub.
-
-### 5. Start the Development Server
+### 5. Start the development server
 
 ```bash
 npm run dev
 ```
 
-Open the local URL printed by Vite in your terminal.
+Open the local URL shown in the terminal.
 
 ## Quality Checks
 
-Run the following commands from the frontend directory:
+Run these commands from `ui/competitor-changelog-scout-main`:
 
 ```bash
 npm run build
@@ -215,25 +165,22 @@ npm run lint
 npm test
 ```
 
-These commands build the frontend and run the configured type, lint, and test checks.
+These commands run the project's configured build, type, lint, and test checks.
 
 ## Deployment
 
-### Frontend Deployment
+### Frontend
 
-The production frontend can be deployed as a static site.
-
-- **Build directory:** `ui/competitor-changelog-scout-main`
 - **Build command:** `npm run build`
 - **Publish directory:** `ui/competitor-changelog-scout-main/dist`
 
-Configure the static host to serve `index.html` as the fallback for application routes that are not physical files.
+Configure the static host to serve `index.html` as the fallback for application routes.
 
 Live deployment: https://competitor-changelog-scout.onrender.com
 
-### Supabase Backend Deployment
+### Supabase Edge Functions
 
-Deploy the Edge Functions from the repository using the Supabase CLI:
+From the repository root, deploy the functions using the Supabase CLI and your configured project:
 
 ```bash
 supabase functions deploy insights
@@ -242,66 +189,53 @@ supabase functions deploy scan-competitors
 supabase functions deploy verify-entries
 ```
 
-Configure the required secrets and scheduling settings before enabling automated collection.
+Set the required secrets and verify scheduling configuration before enabling automated collection. The frontend deployment alone does not confirm that backend functions or scheduled jobs are configured correctly.
 
-For detailed deployment instructions, refer to [`audit/DEPLOYMENT_GUIDE.md`](audit/DEPLOYMENT_GUIDE.md).
-
-## Project Structure
+## Repository Structure
 
 ```text
 Competitor-Changelog-Scout/
-├── audit/
-│   └── DEPLOYMENT_GUIDE.md
+├── n8n/
+│   └── competitor-changelog-scout.json
+├── ui/
+│   └── competitor-changelog-scout-main/
+│       ├── src/
+│       ├── public/
+│       ├── supabase/
+│       ├── drizzle/
+│       ├── .env.example
+│       └── package.json
 ├── schema.sql
-└── ui/
-    └── competitor-changelog-scout-main/
-        ├── src/
-        ├── supabase/
-        │   └── migrations/
-        ├── public/
-        ├── .env.example
-        ├── package.json
-        └── dist/             # Generated production build
+├── index.html
+├── mock-pages.css
+├── tc1-new.html
+├── tc2-announced.html
+├── tc3-renamed.html
+├── tc4-missing.html
+├── .gitignore
+└── README.md
 ```
 
-The repository also contains the application configuration and supporting files required for development and deployment.
+The root-level HTML files and CSS provide mock pages and test fixtures used to exercise source-collection scenarios, including a missing-source case.
 
-## Current Scope and Limitations
+## Current Limitations
 
-- Source collection depends on the availability and structure of configured websites.
-- Only explicitly allowlisted HTTPS hosts can be accessed by the collector.
-- AI-generated insights may require human review and verification.
-- The dashboard's sample review controls are session-only; persisted review actions use the protected backend workflow.
-- Automated collection requires the appropriate n8n workflow activation and credentials and/or the relevant Supabase configuration, secrets, and scheduled jobs, depending on the deployment path.
-- A successful frontend deployment alone does not guarantee that every backend function or scheduled workflow is configured correctly.
+- Collection can miss updates if a source is unavailable or its page structure changes.
+- AI-generated summaries and classifications can be inaccurate and should be reviewed.
+- Sample review controls in the dashboard are session-only; persisted reviewer actions use the protected backend workflow.
+- Scheduled collection requires the relevant n8n or Supabase scheduler, credentials, and deployment settings to be configured and activated.
 
-## Development Approach
+## Possible Future Improvements
 
-This project was developed through hands-on implementation, experimentation, testing, and iterative refinement, with AI-assisted development used where helpful for exploring approaches, troubleshooting issues, and improving implementation quality.
-
-The focus is on building a practical competitive intelligence tool while learning how frontend applications, backend services, AI integrations, authentication, database security, and scheduled automation work together.
-
-## Future Improvements
-
-Potential areas for further development include:
-
-- More configurable competitor source management.
-- Historical changelog timelines and change comparisons.
-- Improved filtering, search, and prioritization of updates.
-- More detailed competitive intelligence reports.
-- Notifications for significant competitor changes.
-- Expanded test coverage and operational monitoring.
+- Add more configurable competitor sources.
+- Improve historical comparisons, filtering, and prioritization.
+- Add notifications for significant changes.
+- Expand test coverage and operational monitoring.
 
 ## Contributing
 
-Suggestions, bug reports, and improvements are welcome. Please open an issue or submit a pull request through the GitHub repository.
-
-## License
-
-No license has been specified in this README. Add a `LICENSE` file if you intend to publish the project under a particular open-source license.
+If you find a bug or have a suggestion, open an issue or pull request in the [GitHub repository](https://github.com/Darpan01Tech/Competitor-Changelog-Scout).
 
 ---
-
-**Live Demo:** https://competitor-changelog-scout.onrender.com
-
+**Live Demo:** https://competitor-changelog-scout.onrender.com  
 **Repository:** https://github.com/Darpan01Tech/Competitor-Changelog-Scout
