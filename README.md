@@ -46,8 +46,6 @@ Only configure mock sources, websites you own, or sources you are authorized to 
 4. Store unique records in Supabase.
 5. Review entries and AI-generated insights in the dashboard.
 
-The repository includes an n8n workflow with a manual trigger and a 12-hour Schedule Trigger. The exported workflow is not proof that scheduled runs are active in production; activation, credentials, and deployment settings must be checked. Supabase scheduling through PostgreSQL `pg_cron` and `pg_net` is also supported in the project configuration, but the active production scheduling path depends on deployment setup.
-
 ## Technology Stack
 
 | Component | Technology |
